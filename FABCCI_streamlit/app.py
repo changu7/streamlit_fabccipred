@@ -2,15 +2,16 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.api import VAR
+import os
+
+# 현재 파일의 디렉토리를 기준으로 데이터 디렉토리 설정
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
 
 # 1. 사용자로부터 CSV 파일을 업로드 받기 또는 내장된 데이터 사용
 st.title("FAB CCI 예측(VAR 모델)")
 
-st.divider()
-
 data_choice = st.radio("데이터 선택 방법을 고르세요", ("내장된 데이터 사용", "CSV 파일 업로드"))
-
-st.divider()
 
 if data_choice == "CSV 파일 업로드":
     uploaded_file = st.file_uploader("CSV 파일을 업로드해 주세요", type=["csv"])
@@ -34,7 +35,12 @@ else:
     proceed = st.button("예측하기")
     if proceed:
         file_number = options[selected_option]
-        df = pd.read_csv(f'./data/tar{file_number}.csv')
+        file_path = os.path.join(DATA_DIR, f'tar{file_number}.csv')
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path)
+        else:
+            st.error(f"파일을 찾을 수 없습니다: {file_path}")
+            proceed = False
 
 if proceed and 'df' in locals():
     # 2. 파일을 읽어서 데이터프레임으로 변환
@@ -64,6 +70,8 @@ if proceed and 'df' in locals():
     forecast_index = pd.date_range(start=(df.index[-1] + pd.offsets.MonthBegin()).replace(day=1), periods=forecast_steps, freq='MS')
     forecast_df = pd.DataFrame(forecast, index=forecast_index, columns=df.columns)
 
+    st.divider()
+
     # 8. 예측 값을 date와 함께 사용자에게 보여줌
     st.write("예측값:")
     st.write(forecast_df[[df.columns[-1]]])
@@ -85,5 +93,6 @@ if proceed and 'df' in locals():
     # 10. 예측값을 CSV 파일로 다운로드할 수 있게 만듬
     csv = forecast_df[[df.columns[-1]]].to_csv().encode('utf-8')
     st.download_button(label="예측값 다운로드(.csv)", data=csv, file_name='forecast.csv', mime='text/csv')
+
 
 
