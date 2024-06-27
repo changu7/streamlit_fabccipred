@@ -13,7 +13,7 @@ st.title("FAB 건설공사비지수 예측")
 
 data_choice = st.radio("데이터 업로드 방식을 고르세요", ("내장된 데이터 사용 (최신: 2000.01. ~ 2024.04.)", "새로운 CSV 파일 업로드"))
 
-if data_choice == "CSV 파일 업로드":
+if data_choice == "새로운 CSV 파일 업로드":
     uploaded_file = st.file_uploader("CSV 파일을 업로드해 주세요", type=["csv"])
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
