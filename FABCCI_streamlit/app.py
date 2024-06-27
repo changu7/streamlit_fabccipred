@@ -9,9 +9,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 
 # 1. 사용자로부터 CSV 파일을 업로드 받기 또는 내장된 데이터 사용
-st.title("FAB CCI 예측(VAR 모델)")
+st.title("FAB 건설공사비지수 예측")
 
-data_choice = st.radio("데이터 선택 방법을 고르세요", ("내장된 데이터 사용", "CSV 파일 업로드"))
+data_choice = st.radio("데이터 업로드 방식을 고르세요", ("내장된 데이터 사용 (최신: 2000.01. ~ 2024.04.)", "새로운 CSV 파일 업로드"))
 
 if data_choice == "CSV 파일 업로드":
     uploaded_file = st.file_uploader("CSV 파일을 업로드해 주세요", type=["csv"])
@@ -31,7 +31,7 @@ else:
         "설비마감": 7,
         "전기마감": 8
     }
-    selected_option = st.selectbox("내장된 데이터 중 하나를 선택해 주세요", options.keys())
+    selected_option = st.selectbox("예측하고자 하는 지수를 선택해 주세요", options.keys())
     proceed = st.button("예측하기")
     if proceed:
         file_number = options[selected_option]
@@ -44,7 +44,7 @@ else:
 
 if proceed and 'df' in locals():
     # 2. 파일을 읽어서 데이터프레임으로 변환
-    st.write("사용할 데이터:")
+    st.write("업로드된 데이터:")
     st.write(df)
     
     st.divider()
@@ -57,7 +57,7 @@ if proceed and 'df' in locals():
     model = VAR(df)
     results = model.select_order(maxlags=15)
     lag_order = results.aic
-    st.write(f"최적 Lag (AIC 기반): {lag_order}")
+    st.write(f"최적 지연(lag): {lag_order}개월")
 
     st.divider()
 
