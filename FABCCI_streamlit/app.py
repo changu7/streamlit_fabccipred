@@ -89,6 +89,9 @@ if proceed and 'df' in locals():
     # 업로드된 데이터들 plot
     st.divider()
     st.subheader("시장 지수 및 실제 지수", divider='grey')
+    for column in df.columns:
+        if column != 'date':
+            st.write(f'- {column}')
     plt.figure(figsize=(10, 6))
     for column in df.columns:
         if column != 'date':
