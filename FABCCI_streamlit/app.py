@@ -3,20 +3,52 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.tsa.api import VAR
 import os
+import json
+from matplotlib.dates import DateFormatter
 
 # 현재 파일의 디렉토리를 기준으로 데이터 디렉토리 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
+SAMPLES_DIR = os.path.join(BASE_DIR, 'samples')
+FACTOR_MAP_PATH = os.path.join(BASE_DIR, 'factor_map.json')
+LOGO_PATH_SNUCEM = os.path.join(BASE_DIR, 'img/logo_snucem.png')
+LOGO_PATH_HG = os.path.join(BASE_DIR, 'img/logo_hg.png')
+
+# factor_map.json 파일 읽기
+if os.path.exists(FACTOR_MAP_PATH):
+    with open(FACTOR_MAP_PATH, 'r', encoding='cp949') as f:
+        factor_map = json.load(f)
+else:
+    factor_map = {}
+
+# 컬럼명 변환 함수
+def rename_columns(df, factor_map):
+    df = df.rename(columns=lambda x: factor_map.get(x, x))
+    return df
 
 # 1. 사용자로부터 CSV 파일을 업로드 받기 또는 내장된 데이터 사용
 st.title("FAB 건설공사비지수 예측")
-
-data_choice = st.radio("데이터 업로드 방식을 고르세요", ("내장된 데이터 사용 (최신: 2000.01. ~ 2024.04.)", "새로운 CSV 파일 업로드"))
+st.write("")
+st.subheader("데이터 업로드 방식을 선택하세요", divider='grey')
+data_choice = st.radio('',("내장된 데이터 사용 (최신: 2000.01. ~ 2024.04.)", "새로운 CSV 파일 업로드"))
 
 if data_choice == "새로운 CSV 파일 업로드":
-    uploaded_file = st.file_uploader("CSV 파일을 업로드해 주세요", type=["csv"])
+    # 샘플 파일 다운로드 버튼 생성
+    st.divider()
+    st.subheader("샘플 파일 다운로드", divider='grey')
+    st.write("주의!: 예측하고자 하는 값은 꼭 마지막 컬럼으로 지정하여 작성해주세요")
+    sample_files = [f for f in os.listdir(SAMPLES_DIR) if f.endswith('.csv')]
+    for sample_file in sample_files:
+        file_path = os.path.join(SAMPLES_DIR, sample_file)
+        with open(file_path, 'rb') as f:
+            st.download_button(label=sample_file, data=f, file_name=sample_file, mime='text/csv')
+
+    st.divider()
+    st.subheader("CSV 파일을 업로드해 주세요", divider='grey')
+    uploaded_file = st.file_uploader("파일 드래그 및 파일 찾기로 업로드해 주세요", type=["csv"])
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
+        df = rename_columns(df, factor_map)
         proceed = st.button("예측하기")
     else:
         proceed = False
@@ -31,35 +63,51 @@ else:
         "설비마감": 7,
         "전기마감": 8
     }
-    selected_option = st.selectbox("예측하고자 하는 지수를 선택해 주세요", options.keys())
+    st.write("")
+    st.subheader("예측하고자 하는 지수를 선택해 주세요", divider='grey')
+    selected_option = st.selectbox("", options.keys())
     proceed = st.button("예측하기")
     if proceed:
         file_number = options[selected_option]
         file_path = os.path.join(DATA_DIR, f'tar{file_number}.csv')
         if os.path.exists(file_path):
             df = pd.read_csv(file_path)
+            df = rename_columns(df, factor_map)
         else:
             st.error(f"파일을 찾을 수 없습니다: {file_path}")
             proceed = False
 
 if proceed and 'df' in locals():
     # 2. 파일을 읽어서 데이터프레임으로 변환
-    st.write("업로드된 데이터:")
-    st.write(df)
     
     st.divider()
-
-    # 4. date 컬럼을 datetime 형식으로 변환
+    st.subheader("업로드된 데이터", divider='grey')
+    st.write(df)
     df['date'] = pd.to_datetime(df['date'])
     df.set_index('date', inplace=True)
+
+    # 업로드된 데이터들 plot
+    st.divider()
+    st.subheader("시장 지수 및 실제 지수", divider='grey')
+    plt.figure(figsize=(10, 6))
+    for column in df.columns:
+        if column != 'date':
+            plt.plot(df.index, df[column], label=column)
+    plt.title('Time Series of All Columns')
+    plt.xlabel('Date')
+    plt.ylabel('Values')
+    plt.legend()
+    plt.gca().xaxis.set_major_formatter(DateFormatter('%Y'))
+    st.pyplot(plt)
 
     # 5. AIC를 사용하여 VAR 모델의 최적 lag 값을 찾기
     model = VAR(df)
     results = model.select_order(maxlags=15)
     lag_order = results.aic
-    st.write(f"최적 지연(lag): {lag_order}개월")
 
     st.divider()
+    st.subheader("파라미터 최적화 결과", divider='grey')
+    st.write(f"최적 지연(lag)= {lag_order}개월")
 
     # 6. 해당 lag를 사용해서 모델을 학습
     var_model = model.fit(lag_order)
@@ -70,15 +118,15 @@ if proceed and 'df' in locals():
     forecast_index = pd.date_range(start=(df.index[-1] + pd.offsets.MonthBegin()).replace(day=1), periods=forecast_steps, freq='MS')
     forecast_df = pd.DataFrame(forecast, index=forecast_index, columns=df.columns)
 
-    st.divider()
-
     # 8. 예측 값을 date와 함께 사용자에게 보여줌
-    st.write("예측값:")
-    st.write(forecast_df[[df.columns[-1]]])
-
     st.divider()
+    st.subheader(f"{df.columns[-1]} 예측값", divider='grey')
+    forecast_df_renamed = rename_columns(forecast_df[[df.columns[-1]]], factor_map)
+    st.write(forecast_df_renamed)
 
     # 9. 마지막 컬럼의 실제값과 예측값을 plot
+    st.divider()
+    st.subheader("실제값 및 예측값 비교 그래프", divider='grey')
     plt.figure(figsize=(10, 6))
     plt.plot(df.index, df.iloc[:, -1], label='Actual', color='grey')
     plt.plot(forecast_df.index, forecast_df.iloc[:, -1], label='Predicted', color='red', linestyle='dashed')
@@ -86,13 +134,22 @@ if proceed and 'df' in locals():
     plt.ylabel(df.columns[-1])
     plt.title('Actual and Predicted Values')
     plt.legend()
+    plt.gca().xaxis.set_major_formatter(DateFormatter('%Y'))
     st.pyplot(plt)
 
-    st.divider()
-
     # 10. 예측값을 CSV 파일로 다운로드할 수 있게 만듬
-    csv = forecast_df[[df.columns[-1]]].to_csv().encode('utf-8')
-    st.download_button(label="예측값 다운로드(.csv)", data=csv, file_name='forecast.csv', mime='text/csv')
+    st.divider()
+    st.subheader("예측값 다운로드", divider='grey')
+    csv = forecast_df_renamed.to_csv().encode('cp949')
+    st.download_button(label="예측값 다운로드(.csv)", data=csv, file_name=f'{df.columns[-1]}_예측값.csv', mime='text/csv')
+
+# 두 이미지를 양 옆에 나란히 표시
+st.divider()
+col1, col2 = st.columns(2)
+with col1:
+    st.image(LOGO_PATH_SNUCEM, width=200)
+with col2:
+    st.image(LOGO_PATH_HG, width=200)
 
 
 
