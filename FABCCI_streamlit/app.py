@@ -47,7 +47,7 @@ if data_choice == "새로운 CSV 파일 업로드":
     st.subheader("CSV 파일을 업로드해 주세요", divider='grey')
     uploaded_file = st.file_uploader("파일 드래그 및 파일 찾기로 업로드해 주세요", type=["csv"])
     if uploaded_file:
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file, encoding='cp949')
         df = rename_columns(df, factor_map)
         proceed = st.button("예측하기")
     else:
