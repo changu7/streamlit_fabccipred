@@ -116,7 +116,7 @@ if proceed and 'df' in locals():
     st.divider()
     st.subheader("실제값 및 예측값 비교 그래프", divider='grey')
     actual_pred_df = pd.concat([df.iloc[:, -1], forecast_df.iloc[:, -1]], axis=1)
-    actual_pred_df.columns = ['Actual', 'Predicted']
+    actual_pred_df.columns = ['실제', '예측']
     st.line_chart(actual_pred_df)
 
     # 예측값을 CSV 파일로 다운로드할 수 있게 만듬
